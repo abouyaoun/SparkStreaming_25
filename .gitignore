@@ -1,0 +1,10 @@
+producer/dataset_cac40/
+# Ignorer les fichiers .jar compilés
+*.jar
+
+# Ignorer les dossiers de build Scala/SBT
+target/
+
+producer/project/target/
+producer/project/project/
+
