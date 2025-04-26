@@ -1,42 +1,53 @@
 package com.example.sparkcoreproducer
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.{SparkSession}
 import java.util.Properties
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import scala.collection.mutable.ArrayBuffer
 
 object ProducerApp {
   def main(args: Array[String]): Unit = {
-    println("🚀 Lancement du Producer Scala vers Kafka")
+    println("Lancement du Producer Scala avec Spark vers Kafka")
 
-    // Lecture du fichier CSV
-    //val lines = scala.io.Source.fromFile("/data/dataset_cac40/CAC40_stocks_2010_2021.csv").getLines().toList
-    val lines = scala.io.Source.fromFile("/data/dataset_stock/2025-04-11.csv").getLines().toList
-    val header = lines.head
-    val data = lines.tail
+    val spark = SparkSession.builder()
+      .appName("Spark Kafka Producer")
+      .master("local[*]")
+      .getOrCreate()
 
-    // Kafka Producer config
-    val props = new Properties()
-    props.put("bootstrap.servers", "kafka:9092")
-    props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-    props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    import spark.implicits._
 
-    val producer = new KafkaProducer[String, String](props)
+    // Lire le CSV avec Spark
+    val df = spark.read
+      .option("header", "true")
+      .csv("/data/dataset_stock/2025-04-11.csv")
 
-    // Diviser en batches de 100
-    val batches = data.grouped(100).toList
+    println(s"Nombre de lignes lues : ${df.count()}")
 
-    for ((batch, i) <- batches.zipWithIndex) {
-      println(s"📦 Envoi du batch $i (${batch.size} lignes)")
-      batch.foreach { line =>
-        val record = new ProducerRecord[String, String]("my_topic", null, line)
-        producer.send(record)
-        println(s"📤 ligne envoyée : $line")
+    // Envoyer chaque partition séparément
+    df.map(row => row.mkString(","))
+      .rdd
+      .foreachPartition { partitionIterator =>
+
+        val props = new Properties()
+        props.put("bootstrap.servers", "kafka:9092")
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+
+        val producer = new KafkaProducer[String, String](props)
+
+        partitionIterator.grouped(100).foreach { batch =>
+          println(s"Envoi d'un batch de ${batch.size} lignes")
+          batch.foreach { line =>
+            val record = new ProducerRecord[String, String]("my_topic", null, line)
+            producer.send(record)
+          }
+          Thread.sleep(2000)
+        }
+
+        producer.close()
       }
-      Thread.sleep(2000)
-    }
 
-    producer.close()
-    println("✅ Fin de l'envoi Scala -> Kafka")
+    spark.stop()
+
+    println("Fin de l'envoi Spark -> Kafka")
   }
 }
