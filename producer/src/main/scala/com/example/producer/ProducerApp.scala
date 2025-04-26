@@ -10,7 +10,8 @@ object ProducerApp {
     println("🚀 Lancement du Producer Scala vers Kafka")
 
     // Lecture du fichier CSV
-    val lines = scala.io.Source.fromFile("/data/dataset_cac40/CAC40_stocks_2010_2021.csv").getLines().toList
+    //val lines = scala.io.Source.fromFile("/data/dataset_cac40/CAC40_stocks_2010_2021.csv").getLines().toList
+    val lines = scala.io.Source.fromFile("/data/dataset_stock/2025-04-11.csv").getLines().toList
     val header = lines.head
     val data = lines.tail
 
