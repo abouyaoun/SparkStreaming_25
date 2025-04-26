@@ -7,28 +7,23 @@ import scala.collection.mutable.ArrayBuffer
 
 object ProducerApp {
   def main(args: Array[String]): Unit = {
-    println("🚀 Lancement du Producer Spark Core vers Kafka")
+    println("🚀 Lancement du Producer Scala vers Kafka")
 
-    // Configuration Spark Core
-    val conf = new SparkConf().setAppName("SparkCSVKafkaProducer").setMaster("local[*]")
-    val sc = new SparkContext(conf)
-
-    // Lecture du fichier CSV avec Spark
-    val path = "dataset_cac40/CAC40_stocks_2010_2021.csv"
-    val rdd = sc.textFile(path)
-    val header = rdd.first()
-    val data = rdd.filter(_ != header)
+    // Lecture du fichier CSV
+    val lines = scala.io.Source.fromFile("/data/dataset_cac40/CAC40_stocks_2010_2021.csv").getLines().toList
+    val header = lines.head
+    val data = lines.tail
 
     // Kafka Producer config
     val props = new Properties()
-    props.put("bootstrap.servers", "kafka:9092") // ou localhost:9092
+    props.put("bootstrap.servers", "kafka:9092")
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
     props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
     val producer = new KafkaProducer[String, String](props)
 
     // Diviser en batches de 100
-    val batches = data.collect().grouped(100).toList
+    val batches = data.grouped(100).toList
 
     for ((batch, i) <- batches.zipWithIndex) {
       println(s"📦 Envoi du batch $i (${batch.size} lignes)")
@@ -41,7 +36,6 @@ object ProducerApp {
     }
 
     producer.close()
-    sc.stop()
-    println("✅ Fin de l'envoi Spark -> Kafka")
+    println("✅ Fin de l'envoi Scala -> Kafka")
   }
 }

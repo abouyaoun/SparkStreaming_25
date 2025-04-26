@@ -43,7 +43,8 @@ services:
       - kafka
     volumes:
       - ./producer/target/scala-2.12:/app
-      - ./producer/dataset_cac40:/data/dataset_cac40
+      - ./producer/batches_simul/dataset_cac40:/data/dataset_cac40
+
     command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
 
   kafka-cli:
