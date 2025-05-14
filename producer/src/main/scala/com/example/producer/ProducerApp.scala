@@ -40,7 +40,7 @@ object ProducerApp {
             val record = new ProducerRecord[String, String]("my_topic", null, line)
             producer.send(record)
           }
-          Thread.sleep(2000)
+          Thread.sleep(5000)
         }
 
         producer.close()
