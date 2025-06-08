@@ -34,6 +34,8 @@ object ProducerApp {
 
         val producer = new KafkaProducer[String, String](props)
 
+
+        //envoie ligne par ligne mauvais, utiliser un timestemp pour comparer,
         partitionIterator.grouped(100).foreach { batch =>
           println(s"Envoi d'un batch de ${batch.size} lignes")
           batch.foreach { line =>

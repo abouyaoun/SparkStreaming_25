@@ -48,6 +48,14 @@ services:
 
     command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
 
+  consumer:
+    build: ./consumer
+    depends_on:
+      - kafka
+    volumes:
+      - ./consumer/target/scala-2.12:/app
+    command: []
+
   kafka-cli:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-cli
