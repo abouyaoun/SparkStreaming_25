@@ -9,10 +9,11 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-core" % sparkVersion,
       "org.apache.spark" %% "spark-sql" % sparkVersion,
+      "org.apache.spark" %% "spark-streaming" % sparkVersion,  // <-- juste ça en plus (optionnel mais propre)
       "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVersion,
       "org.apache.spark" %% "spark-token-provider-kafka-0-10" % sparkVersion,
       "org.apache.kafka" % "kafka-clients" % "2.8.1",
-      "ch.qos.logback" % "logback-classic" % "1.2.11"
+      "org.postgresql" % "postgresql" % "42.3.1"
     ),
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", _ @_*) => MergeStrategy.discard
