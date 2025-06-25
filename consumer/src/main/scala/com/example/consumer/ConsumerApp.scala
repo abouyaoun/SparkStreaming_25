@@ -4,17 +4,6 @@ import org.apache.spark.sql.{SparkSession, Dataset}
 import org.apache.spark.sql.functions._
 import scala.util.Try
 
-case class StockData(
-                      ticker: String,
-                      volume: Long,
-                      open: Double,
-                      close: Double,
-                      high: Double,
-                      low: Double,
-                      window_start: Long,
-                      transactions: Long
-                    )
-
 object ConsumerApp {
   def main(args: Array[String]): Unit = {
 
@@ -55,7 +44,83 @@ object ConsumerApp {
       }
     }
 
+
+
+
+
+
+
+
+
     val query = parsedDS.writeStream
+      .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
+        val rowCount = batchDF.count()  // ✅ nom différent
+
+        println(s"🔥 Batch $batchId reçu avec $rowCount lignes")
+
+        if (rowCount > 0) {
+          try {
+            // Agrégations ici
+            val aggDF = batchDF
+              .groupBy($"ticker")
+              .agg(
+                org.apache.spark.sql.functions.count(lit(1)).as("nb_enregistrements"),
+                avg($"volume").as("volume_moyen"),
+                max($"high").as("plus_haut"),
+                min($"low").as("plus_bas")
+              )
+              .withColumn("batch_id", lit(batchId))
+              .withColumn("date_calc", current_timestamp())
+
+            // Écriture en BDD
+            aggDF.write
+              .format("jdbc")
+              .option("url", "jdbc:postgresql://postgres:5432/postgres")
+              .option("dbtable", "public.stock_data_agg")
+              .option("user", "spark")
+              .option("password", "spark123")
+              .option("driver", "org.postgresql.Driver")
+              .mode("append")
+              .save()
+
+            println(s"📊 Agrégations du batch $batchId insérées dans stock_data_agg ✅")
+
+            // Écriture du batch brut
+            batchDF.write
+              .format("jdbc")
+              .option("url", "jdbc:postgresql://postgres:5432/postgres")
+              .option("dbtable", "public.stock_data")
+              .option("user", "spark")
+              .option("password", "spark123")
+              .option("driver", "org.postgresql.Driver")
+              .mode("append")
+              .save()
+
+          } catch {
+            case e: Exception =>
+              println(s"❌ Erreur d'insertion JDBC dans batch $batchId : ${e.getMessage}")
+              e.printStackTrace()
+          }
+        } else {
+          println(s"⚠️ Batch $batchId vide (aucune ligne à insérer)")
+        }
+      }
+      .start()
+
+    query.awaitTermination()
+
+
+
+
+
+
+
+
+
+
+
+
+    /*val query = parsedDS.writeStream
       .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
         val count = batchDF.count()
         println(s"🔥 Batch $batchId reçu avec $count lignes")
@@ -82,8 +147,8 @@ object ConsumerApp {
           println(s"⚠️ Batch $batchId vide (aucune ligne à insérer)")
         }
       }
-      .start()
+      .start()*/
 
-    query.awaitTermination()
+    //query.awaitTermination()
   }
 }

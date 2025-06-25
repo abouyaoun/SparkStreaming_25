@@ -48,6 +48,14 @@ services:
 
     command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
 
+  streamlit:
+    build: ./streamlit
+    container_name: streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - postgres
+
   consumer:
     build: ./consumer
     depends_on:
