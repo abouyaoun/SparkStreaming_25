@@ -19,6 +19,7 @@ object ProducerApp {
     val df = spark.read
       .option("header", "true")
       .csv("/data/dataset_stock/2025-04-11.csv")
+      .orderBy($"window_start".cast("long"))
 
     println(s"Nombre de lignes lues : ${df.count()}")
 
