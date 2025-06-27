@@ -61,7 +61,9 @@ object ConsumerApp {
           try {
             // Agrégations Spark
             val aggDF = batchDF
-              .withColumn("prix_pondere", $"close" * $"volume") // étape intermédiaire
+              .withColumn("prix_pondere", $"close" * $"volume")
+              .withColumn("volatilite", (($"high" - $"low") / $"open") * 100)
+              .withColumn("roi_simule", (($"close" - $"open") / $"open") * 100)
               .groupBy($"ticker")
               .agg(
                 count(lit(1)).as("nb_enregistrements"),
@@ -69,10 +71,13 @@ object ConsumerApp {
                 max($"high").as("plus_haut"),
                 min($"low").as("plus_bas"),
                 sum($"prix_pondere").as("somme_close_volume"),
-                sum($"volume").as("somme_volume")
+                sum($"volume").as("somme_volume"),
+                avg($"volatilite").as("volatilite_pct"),
+                avg($"roi_simule").as("roi_simule_pct"),
+                sum($"transactions").as("transactions_totales")
               )
-              .withColumn("vwap", $"somme_close_volume" / $"somme_volume") // calcul du VWAP
-              .drop("somme_close_volume", "somme_volume") // nettoyage colonnes intermédiaires
+              .withColumn("vwap", $"somme_close_volume" / $"somme_volume")
+              .drop("somme_close_volume", "somme_volume")
               .withColumn("batch_id", lit(batchId))
               .withColumn("date_calc", current_timestamp())
 
