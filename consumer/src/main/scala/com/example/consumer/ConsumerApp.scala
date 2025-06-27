@@ -54,25 +54,29 @@ object ConsumerApp {
 
     val query = parsedDS.writeStream
       .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
-        val rowCount = batchDF.count()  // ✅ nom différent
-
+        val rowCount = batchDF.count()
         println(s"🔥 Batch $batchId reçu avec $rowCount lignes")
 
         if (rowCount > 0) {
           try {
-            // Agrégations ici
+            // Agrégations Spark
             val aggDF = batchDF
+              .withColumn("prix_pondere", $"close" * $"volume") // étape intermédiaire
               .groupBy($"ticker")
               .agg(
-                org.apache.spark.sql.functions.count(lit(1)).as("nb_enregistrements"),
+                count(lit(1)).as("nb_enregistrements"),
                 avg($"volume").as("volume_moyen"),
                 max($"high").as("plus_haut"),
-                min($"low").as("plus_bas")
+                min($"low").as("plus_bas"),
+                sum($"prix_pondere").as("somme_close_volume"),
+                sum($"volume").as("somme_volume")
               )
+              .withColumn("vwap", $"somme_close_volume" / $"somme_volume") // calcul du VWAP
+              .drop("somme_close_volume", "somme_volume") // nettoyage colonnes intermédiaires
               .withColumn("batch_id", lit(batchId))
               .withColumn("date_calc", current_timestamp())
 
-            // Écriture en BDD
+            // Écriture des agrégations dans PostgreSQL
             aggDF.write
               .format("jdbc")
               .option("url", "jdbc:postgresql://postgres:5432/postgres")
@@ -85,7 +89,7 @@ object ConsumerApp {
 
             println(s"📊 Agrégations du batch $batchId insérées dans stock_data_agg ✅")
 
-            // Écriture du batch brut
+            // Écriture des données brutes
             batchDF.write
               .format("jdbc")
               .option("url", "jdbc:postgresql://postgres:5432/postgres")

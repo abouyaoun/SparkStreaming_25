@@ -7,7 +7,7 @@ def connect():
         dbname="postgres",
         user="spark",
         password="spark123",
-        host="postgres",  # 👈 PAS localhost ici !
+        host="postgres",  # Pas localhost ici !
         port="5432"
     )
 
@@ -21,6 +21,19 @@ def load_data():
     return df
 
 # Streamlit UI
-st.title("📈 Agrégations Boursières")
+st.title("📊 Indicateur VWAP : Écart prix/vwap")
+
 df = load_data()
-st.dataframe(df)
+
+# Pour chaque ligne du DataFrame
+for _, row in df.iterrows():
+    ticker = row['ticker']
+    close = row['plus_haut']  # ou 'close' si tu veux le prix de clôture exact
+    vwap = row['vwap']
+
+    if close > vwap:
+        st.success(f"✅ Le prix actuel de **{ticker}** est **au-dessus** du VWAP (**{close:.2f} > {vwap:.2f}**)")
+    elif close < vwap:
+        st.error(f"❌ Le prix actuel de **{ticker}** est **en dessous** du VWAP (**{close:.2f} < {vwap:.2f}**)")
+    else:
+        st.info(f"➖ Le prix actuel de **{ticker}** est **égal** au VWAP (**{close:.2f} = {vwap:.2f}**)")
