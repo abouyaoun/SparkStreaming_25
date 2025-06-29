@@ -1,6 +1,6 @@
 producer/dataset_cac40/
 producer/dataset_stock/
-producer/batches_simul/dataset_stock/*
+producer/dataset_stock/*
 # Ignorer les fichiers .jar compilés
 *.jar
 

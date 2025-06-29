@@ -3,9 +3,20 @@ package com.example.consumer
 import org.apache.spark.sql.{SparkSession, Dataset}
 import org.apache.spark.sql.functions._
 import scala.util.Try
+import org.apache.spark.sql.types._
 
 object ConsumerApp {
   def main(args: Array[String]): Unit = {
+
+    val schema = new StructType()
+      .add("ticker", StringType)
+      .add("volume", LongType)
+      .add("open", DoubleType)
+      .add("close", DoubleType)
+      .add("high", DoubleType)
+      .add("low", DoubleType)
+      .add("window_start", LongType)
+      .add("transactions", LongType)
 
     val spark = SparkSession.builder
       .appName("StructuredStreamingConsumer")
@@ -21,38 +32,15 @@ object ConsumerApp {
       .option("startingOffsets", "latest") // Important pour démarrer proprement
       .load()
 
-    val messages = kafkaDF.selectExpr("CAST(value AS STRING)").as[String]
-
     // Parsing sécurisé
-    val parsedDS = messages.flatMap { line =>
-      val parts = line.split(",")
-      if (parts.length == 8) {
-        Try {
-          Some(StockData(
-            parts(0),
-            parts(1).toLong,
-            parts(2).toDouble,
-            parts(3).toDouble,
-            parts(4).toDouble,
-            parts(5).toDouble,
-            parts(6).toLong,
-            parts(7).toLong
-          ))
-        }.getOrElse(None)
-      } else {
-        None
-      }
-    }
+    val messages = kafkaDF.selectExpr("CAST(value AS STRING)").as[String]
+    val parsedDF = messages
+      .select(from_json($"value", schema).as("data"))
+      .select("data.*")
+      .as[StockData]
 
 
-
-
-
-
-
-
-
-    val query = parsedDS.writeStream
+    val query = parsedDF.writeStream
       .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
         val rowCount = batchDF.count()
         println(s"🔥 Batch $batchId reçu avec $rowCount lignes")
@@ -121,43 +109,5 @@ object ConsumerApp {
 
 
 
-
-
-
-
-
-
-
-
-    /*val query = parsedDS.writeStream
-      .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
-        val count = batchDF.count()
-        println(s"🔥 Batch $batchId reçu avec $count lignes")
-
-        if (count > 0) {
-          try {
-            batchDF.write
-              .format("jdbc")
-              .option("url", "jdbc:postgresql://postgres:5432/postgres")
-              .option("dbtable", "public.stock_data")
-              .option("user", "spark")
-              .option("password", "spark123")
-              .option("driver", "org.postgresql.Driver")
-              .mode("append")
-              .save()
-
-            println(s"✅ Batch $batchId inséré avec succès")
-          } catch {
-            case e: Exception =>
-              println(s"❌ Erreur d'insertion JDBC dans batch $batchId : ${e.getMessage}")
-              e.printStackTrace()
-          }
-        } else {
-          println(s"⚠️ Batch $batchId vide (aucune ligne à insérer)")
-        }
-      }
-      .start()*/
-
-    //query.awaitTermination()
   }
 }
