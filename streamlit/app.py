@@ -22,17 +22,17 @@ def connect():
 def load_data():
     conn = connect()
     df = pd.read_sql(
-        "SELECT * FROM public.stock_data_agg ORDER BY date_calc DESC LIMIT 500",
+        "SELECT * FROM public.stock_data_agg ORDER BY date_calc DESC LIMIT 15000",
         conn
     )
     conn.close()
     return df
 
 # Interface
-st.title("📊 Tableau de bord Boursier")
+st.title("📊 Tableau de bord Boursier - test")
 
 df = load_data()
-tickers = df["ticker"].unique().tolist()
+tickers = df["ticker"].sort_values().unique().tolist()
 
 # Sécurisation du ticker sélectionné
 if "selected_ticker" not in st.session_state or st.session_state.selected_ticker not in tickers:
@@ -47,6 +47,7 @@ selected = st.selectbox(
 if selected != st.session_state.selected_ticker:
     st.session_state.selected_ticker = selected
 
+selected = "AMZN"
 # Filtrage du ticker
 sub = df[df["ticker"] == selected].sort_values("date_calc", ascending=False).head(1)
 
@@ -56,11 +57,11 @@ if not sub.empty:
     close = sub["plus_haut"].values[0]  # ou à adapter avec vraie valeur close
     low = sub["plus_bas"].values[0]
     high = sub["plus_haut"].values[0]
-    open_price = sub["volume_moyen"].values[0]  # valeur fictive pour le test
-    vol = ((high - low) / open_price) * 100 if open_price != 0 else 0
-    drawdown = ((close - max(close, vwap)) / max(close, vwap)) * 100
-    roi = ((close - open_price) / open_price) * 100
-    nb_tx = sub["nb_enregistrements"].values[0]
+    open_price = sub["ouv"].values[0]  # valeur fictive pour le test
+    vol = sub["volatibilite_pct"].values[0] # ((high - low) / open_price) * 100 if open_price != 0 else 0
+    drawdown = sub["drawdown"].values[0]
+    roi = sub["roi_simule"].values[0] #((close - open_price) / open_price) * 100
+    nb_tx = sub["transactions_totales"].values[0]
 
     # KPI layout
     col1, col2, col3, col4, col5 = st.columns(5)

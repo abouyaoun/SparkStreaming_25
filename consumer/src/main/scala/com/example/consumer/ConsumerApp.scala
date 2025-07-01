@@ -45,13 +45,6 @@ object ConsumerApp {
     }
 
 
-
-
-
-
-
-
-
     val query = parsedDS.writeStream
       .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
         val rowCount = batchDF.count()
@@ -62,8 +55,8 @@ object ConsumerApp {
             // Agrégations Spark
             val aggDF = batchDF
               .withColumn("prix_pondere", $"close" * $"volume")
-              .withColumn("volatilite", (($"high" - $"low") / $"open") * 100)
-              .withColumn("roi_simule", (($"close" - $"open") / $"open") * 100)
+              //              .withColumn("volatilite", (($"high" - $"low") / $"open") * 100)
+              //              .withColumn("roi_simule", (($"close" - $"open") / $"open") * 100)
               .groupBy($"ticker")
               .agg(
                 count(lit(1)).as("nb_enregistrements"),
@@ -72,12 +65,18 @@ object ConsumerApp {
                 min($"low").as("plus_bas"),
                 sum($"prix_pondere").as("somme_close_volume"),
                 sum($"volume").as("somme_volume"),
-                avg($"volatilite").as("volatilite_pct"),
-                avg($"roi_simule").as("roi_simule_pct"),
-                sum($"transactions").as("transactions_totales")
+                //                avg($"volatilite").as("volatilite_pct"),
+                //                avg($"roi_simule").as("roi_simule_pct"),
+                sum($"transactions").as("transactions_totales"),
+                first($"open").as("ouv"),
+                last($"close").as("ferm")
               )
               .withColumn("vwap", $"somme_close_volume" / $"somme_volume")
               .drop("somme_close_volume", "somme_volume")
+              .withColumn("volatibilite", ($"plus_haut" - $"plus_bas") / $"ouv")
+              .withColumn("volatibilite_pct", $"volatibilite" * 100)
+              .withColumn("roi_simule", (($"ferm" - $"ouv") / $"ouv") * 100)
+              .withColumn("drawdown", (($"ferm" - $"plus_haut") / $"plus_haut") * 100)
               .withColumn("batch_id", lit(batchId))
               .withColumn("date_calc", current_timestamp())
 
