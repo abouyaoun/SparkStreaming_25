@@ -2,81 +2,123 @@ import psycopg2
 import pandas as pd
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="Dashboard Boursier", layout="wide")
+st.set_page_config(page_title="📈 Portfolio Tracker", layout="wide")
+st_autorefresh(interval=5000, key="refresh")
 
-# Rafraîchir toutes les 5 secondes (5000 ms)
-st_autorefresh(interval=5000, limit=None, key="refresh")
-
-# Connexion PostgreSQL
+# ======================== Connexions ========================
+@st.cache_resource
 def connect():
     return psycopg2.connect(
-        dbname="postgres",
-        user="spark",
-        password="spark123",
-        host="postgres",  # nom du service Docker
-        port="5432"
-    )
+               dbname="sparkdb", user="spark", password="spark123", host="localhost", port="5432"
+           )
 
-# Charger les données agrégées
-def load_data():
+
+# ttl=5 pour rafraîchir toutes les 5s
+def load_live():
     conn = connect()
-    df = pd.read_sql(
-        "SELECT * FROM public.stock_data_agg ORDER BY date_calc DESC LIMIT 15000",
-        conn
-    )
+    df = pd.read_sql("SELECT * FROM public.stock_data_agg ORDER BY date_calc", conn)
     conn.close()
     return df
 
-# Interface
-st.title("📊 Tableau de bord Boursier - test")
+@st.cache_data
+def load_portfolio():
+    df = pd.read_csv("Portfolio.csv")
+    df.rename(columns={
+        'Ticker': 'ticker',
+        'Nom complet de l’entreprise': 'company',
+        'Action': 'action',
+        'Quantité': 'quantite',
+        'Prix ($)': 'prix',
+        'Date/Heure': 'date_heure'
+    }, inplace=True)
+    df['date_heure'] = pd.to_datetime(df['date_heure'])
+    df['prix'] = df['prix'].astype(str).str.replace(",", "").astype(float)
+    df['quantite'] = pd.to_numeric(df['quantite'], errors="coerce")
+    return df
 
-df = load_data()
-tickers = df["ticker"].sort_values().unique().tolist()
+# ======================== Données ========================
+df_live = load_live()
+df_portfolio = load_portfolio()
 
-# Sécurisation du ticker sélectionné
-if "selected_ticker" not in st.session_state or st.session_state.selected_ticker not in tickers:
-    st.session_state.selected_ticker = tickers[0]
+latest_batch = df_live['date_calc'].max()
+df_last = df_live.groupby("ticker").tail(1).copy()
+df_last["ferm"] = pd.to_numeric(df_last["ferm"], errors="coerce")
 
-selected = st.selectbox(
-    "🎯 Choisissez un Ticker",
-    tickers,
-    index=list(tickers).index(st.session_state.selected_ticker)
+# portefeuille filtré aux transactions <= dernier batch
+df_portfolio = df_portfolio[df_portfolio['date_heure'] <= latest_batch]
+df_portfolio["sens"] = df_portfolio["action"].map({"Achat": 1, "Vente": -1})
+df_portfolio["quantite_nette"] = df_portfolio["quantite"] * df_portfolio["sens"]
+
+positions = df_portfolio.groupby("ticker").agg(
+    quantite_nette=("quantite_nette", "sum"),
+    prix_moyen=("prix", "mean"),
+    company=("company", "first")
+).reset_index()
+
+merged = positions.merge(df_last, on="ticker", how="left")
+merged["PnL"] = (merged["ferm"] - merged["prix_moyen"]) * merged["quantite_nette"]
+merged["ROI"] = ((merged["ferm"] - merged["prix_moyen"]) / merged["prix_moyen"]) * 100
+
+# ======================== Sidebar ========================
+st.sidebar.title("Filtres")
+tickers = st.sidebar.multiselect("Sélectionnez les tickers :", merged["ticker"].unique(), default=merged["ticker"].unique())
+merged = merged[merged["ticker"].isin(tickers)]
+
+# ======================== KPI Résumé ========================
+st.title(f"📈 Portfolio Tracker — {latest_batch:%Y-%m-%d %H:%M:%S}")
+
+k1, k2, k3 = st.columns(3)
+k1.metric("💰 Valeur Totale ($)", f"{(merged['ferm'] * merged['quantite_nette']).sum():.2f}")
+k2.metric("📈 PnL ($)", f"{merged['PnL'].sum():.2f}")
+k3.metric("📊 ROI (%)", f"{merged['ROI'].mean():.2f}")
+
+# ======================== Graphiques ========================
+st.subheader("📈 Évolution intraday des prix")
+for ticker in tickers:
+    sub = df_live[df_live["ticker"] == ticker].copy()
+    sub.sort_values("date_calc", inplace=True)
+
+    if sub.empty:
+        continue
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=sub["date_calc"], y=sub["ferm"],
+        mode='lines', name='Close', line=dict(color='blue')
+    ))
+    fig.add_trace(go.Scatter(
+        x=sub["date_calc"], y=sub["vwap"],
+        mode='lines', name='VWAP', line=dict(color='purple')
+    ))
+
+    fig.update_layout(
+        title=f"{ticker}",
+        xaxis_title="Date",
+        yaxis_title="Prix ($)",
+        template="plotly_white",
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# ======================== PnL par ticker ========================
+st.subheader("📊 PnL par ticker")
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=merged["ticker"], y=merged["PnL"],
+    marker_color="seagreen"
+))
+fig.update_layout(
+    xaxis_title="Ticker",
+    yaxis_title="PnL ($)",
+    template="plotly_white",
+    height=400
 )
+st.plotly_chart(fig, use_container_width=True)
 
-if selected != st.session_state.selected_ticker:
-    st.session_state.selected_ticker = selected
+# ======================== Données brutes ========================
+with st.expander("📋 Voir données live"):
+    st.dataframe(df_live)
 
-selected = "AMZN"
-# Filtrage du ticker
-sub = df[df["ticker"] == selected].sort_values("date_calc", ascending=False).head(1)
-
-# Extraire valeurs
-if not sub.empty:
-    vwap = sub["vwap"].values[0]
-    close = sub["plus_haut"].values[0]  # ou à adapter avec vraie valeur close
-    low = sub["plus_bas"].values[0]
-    high = sub["plus_haut"].values[0]
-    open_price = sub["ouv"].values[0]  # valeur fictive pour le test
-    vol = sub["volatibilite_pct"].values[0] # ((high - low) / open_price) * 100 if open_price != 0 else 0
-    drawdown = sub["drawdown"].values[0]
-    roi = sub["roi_simule"].values[0] #((close - open_price) / open_price) * 100
-    nb_tx = sub["transactions_totales"].values[0]
-
-    # KPI layout
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("VWAP", f"{vwap:.2f} USD")
-    col2.metric("Volatilité (%)", f"{vol:.2f}")
-    col3.metric("Max Drawdown (%)", f"{drawdown:.2f}")
-    col4.metric("ROI Simulé (%)", f"{roi:.2f}")
-    col5.metric("Transactions", f"{int(nb_tx)}")
-
-    # Message interprétation
-    if close > vwap:
-        st.success(f"🟢 Le prix actuel de **{selected}** est **au-dessus** du VWAP ({close:.2f} > {vwap:.2f}) → Tendance haussière possible.")
-    elif close < vwap:
-        st.error(f"🔴 Le prix actuel de **{selected}** est **en-dessous** du VWAP ({close:.2f} < {vwap:.2f}) → Tendance baissière possible.")
-    else:
-        st.info(f"➖ Le prix actuel de **{selected}** est **égal** au VWAP (**{close:.2f} = {vwap:.2f}**)")
-else:
-    st.warning("Aucune donnée disponible pour ce ticker.")
+st.info("Rafraîchissement automatique toutes les 5 secondes. Données en dollars ($).")

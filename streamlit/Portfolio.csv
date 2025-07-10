@@ -1,0 +1,13 @@
+ticker,company,action,quantite,prix,date_heure
+AAPL,Apple Inc.,Achat,50,165.00,2025-04-11 09:35:12
+MSFT,Microsoft Corporation,Achat,30,315.00,2025-04-11 10:20:25
+TSLA,"Tesla, Inc.",Achat,10,700.00,2025-04-11 09:45:00
+NVDA,NVIDIA Corporation,Achat,20,720.00,2025-04-11 10:05:10
+AMZN,"Amazon.com, Inc.",Achat,15,"3,200.00",2025-04-11 11:00:05
+META,"Meta Platforms, Inc.",Achat,25,230.00,2025-04-11 09:50:20
+GOOGL,Alphabet Inc.,Achat,12,"2,750.00",2025-04-11 10:40:35
+ORCL,Oracle Corporation,Achat,40,95.00,2025-04-11 11:10:10
+SAP,SAP SE (ADR),Achat,18,140.00,2025-04-11 11:30:45
+IBM,International Business Machines,Achat,22,132.00,2025-04-11 09:40:00
+INTC,Intel Corporation,Achat,35,55.00,2025-04-11 10:25:20
+AMD,"Advanced Micro Devices, Inc.",Achat,28,95.00,2025-04-11 11:05:00
