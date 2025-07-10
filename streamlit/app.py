@@ -8,10 +8,9 @@ st.set_page_config(page_title="📈 Portfolio Tracker", layout="wide")
 st_autorefresh(interval=5000, key="refresh")
 
 # ======================== Connexions ========================
-@st.cache_resource
 def connect():
     return psycopg2.connect(
-               dbname="sparkdb", user="spark", password="spark123", host="localhost", port="5432"
+               dbname="postgres", user="spark", password="spark123", host="postgres", port="5432"
            )
 
 
