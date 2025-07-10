@@ -7,6 +7,10 @@ import scala.util.Try
 object ConsumerApp {
   def main(args: Array[String]): Unit = {
 
+    val dbUrl = sys.env.getOrElse("DB_URL", "jdbc:postgresql://localhost:5432/postgres")
+    val dbUser = sys.env.getOrElse("DB_USER", "default_user")
+    val dbPassword = sys.env.getOrElse("DB_PASSWORD", "default_password")
+
     val spark = SparkSession.builder
       .appName("StructuredStreamingConsumer")
       .master("local[*]")
@@ -18,12 +22,11 @@ object ConsumerApp {
       .format("kafka")
       .option("kafka.bootstrap.servers", "kafka:9092")
       .option("subscribe", "my_topic")
-      .option("startingOffsets", "latest") // Important pour démarrer proprement
+      .option("startingOffsets", "latest")
       .load()
 
     val messages = kafkaDF.selectExpr("CAST(value AS STRING)").as[String]
 
-    // Parsing sécurisé
     val parsedDS = messages.flatMap { line =>
       val parts = line.split(",")
       if (parts.length == 8) {
@@ -39,11 +42,8 @@ object ConsumerApp {
             parts(7).toLong
           ))
         }.getOrElse(None)
-      } else {
-        None
-      }
+      } else None
     }
-
 
     val query = parsedDS.writeStream
       .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
@@ -52,11 +52,8 @@ object ConsumerApp {
 
         if (rowCount > 0) {
           try {
-            // Agrégations Spark
             val aggDF = batchDF
               .withColumn("prix_pondere", $"close" * $"volume")
-              //              .withColumn("volatilite", (($"high" - $"low") / $"open") * 100)
-              //              .withColumn("roi_simule", (($"close" - $"open") / $"open") * 100)
               .groupBy($"ticker")
               .agg(
                 count(lit(1)).as("nb_enregistrements"),
@@ -65,8 +62,6 @@ object ConsumerApp {
                 min($"low").as("plus_bas"),
                 sum($"prix_pondere").as("somme_close_volume"),
                 sum($"volume").as("somme_volume"),
-                //                avg($"volatilite").as("volatilite_pct"),
-                //                avg($"roi_simule").as("roi_simule_pct"),
                 sum($"transactions").as("transactions_totales"),
                 first($"open").as("ouv"),
                 last($"close").as("ferm")
@@ -81,29 +76,28 @@ object ConsumerApp {
               .withColumn("batch_id", lit(batchId))
               .withColumn("date_calc", current_timestamp())
 
-            // Écriture des agrégations dans PostgreSQL
+            // Insertion dans PostgreSQL
             aggDF.write
               .format("jdbc")
-              .option("url", "jdbc:postgresql://postgres:5432/postgres")
+              .option("url", dbUrl)
               .option("dbtable", "public.stock_data_agg")
-              .option("user", "spark")
-              .option("password", "spark123")
+              .option("user", dbUser)
+              .option("password", dbPassword)
               .option("driver", "org.postgresql.Driver")
               .mode("append")
               .save()
 
-            println(s"📊 Agrégations du batch $batchId insérées dans stock_data_agg ✅")
-
-            // Écriture des données brutes
             batchDF.write
               .format("jdbc")
-              .option("url", "jdbc:postgresql://postgres:5432/postgres")
+              .option("url", dbUrl)
               .option("dbtable", "public.stock_data")
-              .option("user", "spark")
-              .option("password", "spark123")
+              .option("user", dbUser)
+              .option("password", dbPassword)
               .option("driver", "org.postgresql.Driver")
               .mode("append")
               .save()
+
+            println(s"📊 Batch $batchId : données insérées ✅")
 
           } catch {
             case e: Exception =>
@@ -117,47 +111,5 @@ object ConsumerApp {
       .start()
 
     query.awaitTermination()
-
-
-
-
-
-
-
-
-
-
-
-
-    /*val query = parsedDS.writeStream
-      .foreachBatch { (batchDF: Dataset[StockData], batchId: Long) =>
-        val count = batchDF.count()
-        println(s"🔥 Batch $batchId reçu avec $count lignes")
-
-        if (count > 0) {
-          try {
-            batchDF.write
-              .format("jdbc")
-              .option("url", "jdbc:postgresql://postgres:5432/postgres")
-              .option("dbtable", "public.stock_data")
-              .option("user", "spark")
-              .option("password", "spark123")
-              .option("driver", "org.postgresql.Driver")
-              .mode("append")
-              .save()
-
-            println(s"✅ Batch $batchId inséré avec succès")
-          } catch {
-            case e: Exception =>
-              println(s"❌ Erreur d'insertion JDBC dans batch $batchId : ${e.getMessage}")
-              e.printStackTrace()
-          }
-        } else {
-          println(s"⚠️ Batch $batchId vide (aucune ligne à insérer)")
-        }
-      }
-      .start()*/
-
-    //query.awaitTermination()
   }
 }

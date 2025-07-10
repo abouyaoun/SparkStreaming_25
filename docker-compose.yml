@@ -54,6 +54,11 @@ services:
     container_name: consumer
     depends_on:
       - kafka
+      - postgres
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/sparkdb
+      DB_USER: spark
+      DB_PASSWORD: spark123
     # pas besoin de volume ici, le jar est déjà inclus dans l'image
 
   # 📊 Streamlit Dashboard
