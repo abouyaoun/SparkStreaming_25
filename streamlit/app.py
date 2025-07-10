@@ -60,7 +60,7 @@ if not sub.empty:
     vol = ((high - low) / open_price) * 100 if open_price != 0 else 0
     drawdown = ((close - max(close, vwap)) / max(close, vwap)) * 100
     roi = ((close - open_price) / open_price) * 100
-    nb_tx = sub["nb_enregistrements"].values[0]
+    nb_tx = sub["nb_enregistrements"].values[0] #à voir mais changer avec transactions
 
     # KPI layout
     col1, col2, col3, col4, col5 = st.columns(5)
