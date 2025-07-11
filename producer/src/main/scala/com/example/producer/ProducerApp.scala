@@ -21,8 +21,6 @@ object ProducerApp {
       .csv("/data/dataset_stock/2025-04-11.csv")
       .orderBy($"window_start".cast("long"))
 
-    println(s"Nombre de lignes lues : ${df.count()}")
-
     // Envoyer chaque partition séparément
     df.map(row => row.mkString(","))
       .rdd
