@@ -2,11 +2,11 @@ producer/dataset_cac40/
 producer/dataset_stock/
 producer/dataset_stock/*
 # Ignorer les fichiers .jar compilés
-*.jar
+# *.jar
 
 # Ignorer les dossiers de build Scala/SBT
-target/
+#target/
 
-producer/project/target/
-producer/project/project/
+#producer/project/target/
+#producer/project/project/
 
