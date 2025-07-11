@@ -10,3 +10,4 @@ producer/dataset_stock/*
 #producer/project/target/
 #producer/project/project/
 
+.DS_Store
