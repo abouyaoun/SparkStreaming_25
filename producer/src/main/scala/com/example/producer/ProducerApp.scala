@@ -31,6 +31,8 @@ object ProducerApp {
     val totalCount  = df_indexed.count()
     val maxBatchId  = (totalCount + batchSize - 1) / batchSize  // plafond
 
+    println(s"Batchs à envoyer : ${maxBatchId}")
+
     // Envoi des batchs
     for (batchId <- 0L until maxBatchId) {
       val start = batchId * batchSize
@@ -43,7 +45,7 @@ object ProducerApp {
       batchDF
         .selectExpr(
           "CAST(NULL AS STRING) AS key",
-          "to_json(struct(*)) AS value"
+          "concat_ws(\",\", ticker, window_start, open, high, low, close, volume, transactions) AS value"
         )
         .write
         .format("kafka")
