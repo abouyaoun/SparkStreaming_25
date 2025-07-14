@@ -77,6 +77,7 @@ object ConsumerApp {
               .withColumn("volatibilite_pct", $"volatibilite" * 100)
               .withColumn("roi_simule", (($"ferm" - $"ouv") / $"ouv") * 100)
               .withColumn("drawdown", (($"ferm" - $"plus_haut") / $"plus_haut") * 100)
+              .withColumn("typical_price", (($"plus_haut" + $"plus_bas" + $"ferm") / 3))
               .withColumn("batch_id", lit(batchId))
               .withColumn("date_calc", current_timestamp())
 

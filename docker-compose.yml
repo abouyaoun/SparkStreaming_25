@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
 
+  # 🦓 Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -10,6 +11,7 @@ services:
     ports:
       - "2181:2181"
 
+  # 🦒 Kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
@@ -25,6 +27,7 @@ services:
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
 
+  # 🐘 PostgreSQL
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -37,17 +40,23 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # 🚀 Producer (Scala + Kafka)
   producer:
     build: ./producer
     depends_on:
       - kafka
     volumes:
-      - ./producer/target/scala-2.12:/app
-      - ./producer/batches_simul/dataset_stock:/data/dataset_stock
-    #  - ./producer/batches_simul/dataset_cac40:/data/dataset_cac40
+      - ./data/dataset_stock:/data/dataset_stock
 
-    command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
+  # 🔥 Consumer (Scala + Spark)
+  consumer:
+    build: ./consumer
+    container_name: consumer
+    depends_on:
+      - kafka
+    # pas besoin de volume ici, le jar est déjà inclus dans l'image
 
+  # 📊 Streamlit Dashboard
   streamlit:
     build: ./streamlit
     container_name: streamlit
@@ -56,21 +65,13 @@ services:
     depends_on:
       - postgres
 
-  consumer:
-    build: ./consumer
-    depends_on:
-      - kafka
-    volumes:
-      - ./consumer/target/scala-2.12:/app
-    command: []
-
+  # 🛠️ Kafka CLI pour debug
   kafka-cli:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-cli
     depends_on:
       - kafka
     entrypoint: [ "/bin/sh", "-c", "sleep infinity" ]
-
 
 volumes:
   pgdata:
