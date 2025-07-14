@@ -72,8 +72,8 @@ services:
     depends_on:
       - kafka
       - postgres
-    volumes:
-      - ./consumer/target/scala-2.12:/app
+   #volumes:
+    #  - ./consumer/target/scala-2.12:/app
     command: []
     networks:
       - engnetwork

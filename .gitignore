@@ -10,3 +10,5 @@ target/
 producer/project/target/
 producer/project/project/
 
+# ignorer les datasets locaux
+data/dataset_stock/

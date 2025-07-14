@@ -1,26 +1,12 @@
 package com.example.sparkcoreproducer
 
-import org.apache.spark.sql.{SparkSession, Encoders}
-import java.util.Properties
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.spark.sql.{SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.expressions.Window
 
 object ProducerApp {
-
-  case class StockData(
-                        ticker: String,
-                        volume: Long,
-                        open: Double,
-                        close: Double,
-                        high: Double,
-                        low: Double,
-                        window_start: Long,
-                        transactions: Long
-                      )
-
   def main(args: Array[String]): Unit = {
-    println("🚀 Lancement du Producer Scala avec Spark vers Kafka")
+    println("Lancement du Producer Scala avec Spark vers Kafka")
 
     val spark = SparkSession.builder()
       .appName("Spark Kafka Producer")
@@ -28,39 +14,50 @@ object ProducerApp {
       .getOrCreate()
 
     import spark.implicits._
+    spark.sparkContext.setLogLevel("ERROR")
 
-    val df = spark.read
+    // Lire le CSV avec Spark
+    val df_input = spark.read
       .option("header", "true")
-      .schema(Encoders.product[StockData].schema) // impose un schéma clair
       .csv("/data/dataset_stock/2025-04-11.csv")
-      .orderBy($"window_start".cast("long"))
 
-    println(s"✅ ${df.count()} lignes lues")
+    // Ajout id selon window_start
+    val w = Window.orderBy($"window_start".cast("long"))
+    val df_indexed = df_input
+      .withColumn("row_id", row_number().over(w).cast("long") - 1)
 
-    // Transforme en JSON
-    val jsonRDD = df.toJSON.rdd
+    // Paramètres des batchs
+    val batchSize   = 100L
+    val totalCount  = df_indexed.count()
+    val maxBatchId  = (totalCount + batchSize - 1) / batchSize  // plafond
 
-    jsonRDD.foreachPartition { partitionIterator =>
-      val props = new Properties()
-      props.put("bootstrap.servers", "kafka:9092")
-      props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-      props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    println(s"Batchs à envoyer : ${maxBatchId}")
 
-      val producer = new KafkaProducer[String, String](props)
+    // Envoi des batchs
+    for (batchId <- 0L until maxBatchId) {
+      val start = batchId * batchSize
+      val end   = start + batchSize - 1
 
-      partitionIterator.grouped(100).foreach { batch =>
-        println(s"🧾 Envoi d'un batch de ${batch.size} lignes")
-        batch.foreach { json =>
-          val record = new ProducerRecord[String, String]("my_topic", null, json)
-          producer.send(record)
-        }
-        Thread.sleep(5000)
-      }
+      val batchDF = df_indexed
+        .filter($"row_id".between(start, end))
+        .drop("row_id")
 
-      producer.close()
+      batchDF
+        .selectExpr(
+          "CAST(NULL AS STRING) AS key",
+          "concat_ws(\",\", ticker, window_start, open, high, low, close, volume, transactions) AS value"
+        )
+        .write
+        .format("kafka")
+        .option("kafka.bootstrap.servers", "kafka:9092")
+        .option("topic", "my_topic")
+        .save()
+
+      println(s"Batch ${batchId} envoyé")
     }
 
+
     spark.stop()
-    println("✅ Fin de l'envoi Spark → Kafka")
+    println("Fin de l'envoi Spark -> Kafka")
   }
 }
