@@ -87,15 +87,12 @@ services:
     entrypoint: [ "/bin/sh", "-c", "sleep infinity" ]
 
 networks:
-  # PRIV
   engnetwork:
     driver: bridge
 
   dbNetwork:
     driver: bridge
 
-
-  # PUB
   webNetwork:
     driver: bridge
 
