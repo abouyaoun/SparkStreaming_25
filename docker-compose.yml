@@ -9,8 +9,6 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
     ports:
       - "2181:2181"
-    networks:
-      - engnetwork
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -26,8 +24,6 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-    networks:
-      - engnetwork
 
   postgres:
     image: postgres:latest
@@ -40,9 +36,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      - dbNetwork
-      - webNetwork
 
   producer:
     build: ./producer
@@ -52,8 +45,6 @@ services:
       - ./producer/target/scala-2.12:/app
       - ./producer/dataset_stock:/data/dataset_stock
     #  - ./producer/batches_simul/dataset_cac40:/data/dataset_cac40
-    networks:
-      - engnetwork
 
     command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
 
@@ -64,8 +55,6 @@ services:
       - "8501:8501"
     depends_on:
       - postgres
-    networks:
-      - webNetwork
 
   consumer:
     build: ./consumer
@@ -75,9 +64,7 @@ services:
     volumes:
       - ./consumer/target/scala-2.12:/app
     command: []
-    networks:
-      - engnetwork
-      - dbNetwork
+
 
   kafka-cli:
     image: confluentinc/cp-kafka:7.5.0
@@ -86,15 +73,6 @@ services:
       - kafka
     entrypoint: [ "/bin/sh", "-c", "sleep infinity" ]
 
-networks:
-  engnetwork:
-    driver: bridge
-
-  dbNetwork:
-    driver: bridge
-
-  webNetwork:
-    driver: bridge
 
 
 volumes:
