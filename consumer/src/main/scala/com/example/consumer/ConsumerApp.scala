@@ -30,14 +30,14 @@ object ConsumerApp {
       if (parts.length == 8) {
         Try {
           Some(StockData(
-            parts(0),
-            parts(1).toLong,
-            parts(2).toDouble,
-            parts(3).toDouble,
-            parts(4).toDouble,
-            parts(5).toDouble,
-            parts(6).toLong,
-            parts(7).toLong
+            ticker       = parts(0),
+            volume       = parts(6).toLong,
+            open         = parts(2).toDouble,
+            close        = parts(5).toDouble,
+            high         = parts(3).toDouble,
+            low          = parts(4).toDouble,
+            window_start = parts(1).toLong,
+            transactions = parts(7).toLong
           ))
         }.getOrElse(None)
       } else {
@@ -70,7 +70,8 @@ object ConsumerApp {
                 //                avg($"roi_simule").as("roi_simule_pct"),
                 sum($"transactions").as("transactions_totales"),
                 first($"open").as("ouv"),
-                last($"close").as("ferm")
+                last($"close").as("ferm"),
+                max($"window_start").as("last_date")
               )
               .withColumn("vwap", $"somme_close_volume" / $"somme_volume")
               .drop("somme_close_volume", "somme_volume")
@@ -80,7 +81,7 @@ object ConsumerApp {
               .withColumn("drawdown", (($"ferm" - $"plus_haut") / $"plus_haut") * 100)
               .withColumn("typical_price", (($"plus_haut" + $"plus_bas" + $"ferm") / 3))
               .withColumn("batch_id", lit(batchId))
-              .withColumn("date_calc", to_timestamp(from_unixtime($"window_start" / 1e9)))
+              .withColumn("date_calc", to_timestamp(from_unixtime($"last_date" / 1e9)))
 
             // Écriture des agrégations dans PostgreSQL
             aggDF.write
