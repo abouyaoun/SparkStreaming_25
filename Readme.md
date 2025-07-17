@@ -11,7 +11,6 @@ docker compose up
 
 --modif consumer
 
-
 docker volume prune --all
 cd consumer
 sbt clean compile assembly

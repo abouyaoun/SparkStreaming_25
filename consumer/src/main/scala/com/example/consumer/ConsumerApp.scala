@@ -79,7 +79,7 @@ object ConsumerApp {
               .withColumn("drawdown", (($"ferm" - $"plus_haut") / $"plus_haut") * 100)
               .withColumn("typical_price", (($"plus_haut" + $"plus_bas" + $"ferm") / 3))
               .withColumn("batch_id", lit(batchId))
-              .withColumn("date_calc", current_timestamp())
+              .withColumn("date_calc", to_timestamp(from_unixtime($"window_start" / 1e9)))
 
             // Écriture des agrégations dans PostgreSQL
             aggDF.write
