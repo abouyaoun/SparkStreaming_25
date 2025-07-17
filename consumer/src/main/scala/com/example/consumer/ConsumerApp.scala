@@ -13,6 +13,7 @@ object ConsumerApp {
       .getOrCreate()
 
     import spark.implicits._
+    spark.sparkContext.setLogLevel("ERROR")
 
     val kafkaDF = spark.readStream
       .format("kafka")

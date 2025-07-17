@@ -2,7 +2,6 @@ version: '3.8'
 
 services:
 
-  # 🦓 Zookeeper
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -10,8 +9,9 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
     ports:
       - "2181:2181"
+    networks:
+      - engnetwork
 
-  # 🦒 Kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
@@ -26,8 +26,9 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    networks:
+      - engnetwork
 
-  # 🐘 PostgreSQL
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -39,24 +40,23 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - dbNetwork
+      - webNetwork
 
-  # 🚀 Producer (Scala + Kafka)
   producer:
     build: ./producer
     depends_on:
       - kafka
     volumes:
-      - ./data/dataset_stock:/data/dataset_stock
+      - ./producer/target/scala-2.12:/app
+      - ./producer/dataset_stock:/data/dataset_stock
+    #  - ./producer/batches_simul/dataset_cac40:/data/dataset_cac40
+    networks:
+      - engnetwork
 
-  # 🔥 Consumer (Scala + Spark)
-  consumer:
-    build: ./consumer
-    container_name: consumer
-    depends_on:
-      - kafka
-    # pas besoin de volume ici, le jar est déjà inclus dans l'image
+    command: [ "java", "-jar", "producer-app-assembly-1.0.0-SNAPSHOT.jar" ]
 
-  # 📊 Streamlit Dashboard
   streamlit:
     build: ./streamlit
     container_name: streamlit
@@ -64,14 +64,41 @@ services:
       - "8501:8501"
     depends_on:
       - postgres
+    networks:
+      - webNetwork
 
-  # 🛠️ Kafka CLI pour debug
+  consumer:
+    build: ./consumer
+    depends_on:
+      - kafka
+      - postgres
+   #volumes:
+    #  - ./consumer/target/scala-2.12:/app
+    command: []
+    networks:
+      - engnetwork
+      - dbNetwork
+
   kafka-cli:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka-cli
     depends_on:
       - kafka
     entrypoint: [ "/bin/sh", "-c", "sleep infinity" ]
+
+networks:
+  # PRIV
+  engnetwork:
+    driver: bridge
+
+  dbNetwork:
+    driver: bridge
+
+
+  # PUB
+  webNetwork:
+    driver: bridge
+
 
 volumes:
   pgdata:
