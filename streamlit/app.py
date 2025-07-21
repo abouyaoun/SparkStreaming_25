@@ -14,14 +14,14 @@ def connect():
         dbname="postgres", user="spark", password="spark123", host="postgres", port="5432"
     )
 
-@st.cache_data
+#@st.cache_data
 def load_live():
     conn = connect()
     df = pd.read_sql("SELECT * FROM public.stock_data_agg ORDER BY date_calc", conn)
     conn.close()
     return df
 
-@st.cache_data
+#@st.cache_data
 def load_portfolio():
     df = pd.read_csv("Portfolio.csv")
     df.rename(columns={
@@ -57,7 +57,7 @@ all_tickers = sorted(set(tickers_live) | set(tickers_portfolio))
 selected_tickers = st.sidebar.multiselect(
     "Sélectionnez le(s) ticker(s) :",
     options=all_tickers,
-    default=all_tickers
+    default='AAPL'
 )
 
 df_filtered = df_live[df_live['ticker'].isin(selected_tickers)]
