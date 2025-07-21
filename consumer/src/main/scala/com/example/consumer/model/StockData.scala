@@ -1,4 +1,4 @@
-package com.example.consumer
+package com.example.consumer.model
 
 case class StockData(
                       ticker: String,

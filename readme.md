@@ -1,7 +1,3 @@
-docker compose down -v
-
-cd consumer
-sbt clean compile assembly
 
 cd ../producer
 sbt clean compile assembly
@@ -14,7 +10,6 @@ docker compose up
 
 
 --modif consumer
-
 
 docker volume prune --all
 cd consumer
